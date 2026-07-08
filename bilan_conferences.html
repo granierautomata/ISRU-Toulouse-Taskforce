@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bilan des conférences - Regolithe & AM</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  :root {
+    --bg-dark: #0b1220;
+    --panel-bg: #121b2e;
+    --panel-border: #23324d;
+    --text-main: #e7ecf5;
+    --text-muted: #9aa8c0;
+    --accent: #e0a94d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg-dark); font-family: 'Segoe UI', Calibri, Arial, sans-serif; }
+
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  header {
+    background: linear-gradient(120deg, #0b1220 0%, #16233d 100%);
+    color: var(--text-main);
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; letter-spacing: 0.2px; }
+  header .subtitle { font-size: 12.5px; color: var(--text-muted); }
+
+  #main { flex: 1; display: flex; min-height: 0; }
+
+  #map { flex: 1; min-width: 0; }
+
+  #sidebar {
+    width: 340px;
+    max-width: 42vw;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    overflow-y: auto;
+    padding: 18px;
+    color: var(--text-main);
+  }
+
+  #sidebar h2 { font-size: 15px; margin: 0 0 10px 0; color: var(--accent); }
+  #sidebar .placeholder { color: var(--text-muted); font-size: 13.5px; line-height: 1.5; }
+
+  .card-conf { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px; }
+  .card-org { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .card-person { font-size: 13.5px; color: var(--accent); margin-bottom: 12px; }
+  .card-tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .card-notes { font-size: 13.5px; line-height: 1.55; color: var(--text-main); }
+  .card-notes ul { padding-left: 18px; margin: 6px 0; }
+  .card-notes li { margin-bottom: 5px; }
+  .card-collab {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: rgba(224, 169, 77, 0.08);
+    border: 1px solid rgba(224, 169, 77, 0.3);
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card-collab strong { color: var(--accent); }
+  .card-approx {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .group-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+  }
+  .group-nav button {
+    background: var(--accent);
+    color: #1a1408;
+    border: none;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .group-nav button:disabled { opacity: 0.3; cursor: default; }
+  .group-nav .group-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    flex: 1;
+  }
+
+  .cluster-badge {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #0b1220;
+    color: #1a1408;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px rgba(224,169,77,0.4);
+  }
+
+  .legend {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--text-main);
+    line-height: 1.9;
+  }
+  .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+
+  .leaflet-popup-content-wrapper { background: var(--panel-bg); color: var(--text-main); border-radius: 8px; }
+  .leaflet-popup-tip { background: var(--panel-bg); }
+  .leaflet-popup-content { margin: 10px 12px; font-size: 12.5px; }
+  .popup-org { font-weight: 700; font-size: 13.5px; }
+  .popup-person { color: var(--accent); font-size: 12px; }
+
+  @media (max-width: 720px) {
+    #sidebar { position: absolute; right: 0; top: 0; bottom: 0; z-index: 1000; max-width: 78vw; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>Bilan de la saison de conférences</h1>
+      <div class="subtitle">Groupes de travail, procédés et pistes de collaboration rencontrés — cliquez un point sur la carte</div>
+    </div>
+    <div class="subtitle">Dernière mise à jour du contenu : WAMS 2026 (ESA/ESTEC, Noordwijk)</div>
+  </header>
+  <div id="main">
+    <div id="map"></div>
+    <div id="sidebar">
+      <h2>Détails</h2>
+      <div id="sidebar-content" class="placeholder">
+        Cliquez sur un marqueur pour afficher les informations du groupe de travail correspondant.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   DONNÉES — à compléter au fil des conférences.
+   Pour ajouter une entrée : copier un objet du tableau et remplir les champs.
+   category doit correspondre à une clé de CATEGORIES ci-dessous.
+   approx: true si les coordonnées sont une estimation (à vérifier).
+   ========================================================================= */
+
+const CATEGORIES = {
+  pbf:       { label: "Fusion sur lit de poudre (PBF / SLM)", color: "#e0a94d" },
+  ded:       { label: "Dépôt d'énergie dirigé (DED / LDED)",   color: "#4d9de0" },
+  indirect:  { label: "Voie indirecte (extrusion, encre, composites)", color: "#7fd88f" },
+  ebeam:     { label: "Faisceau d'électrons", color: "#FF3B14" },
+  maison:    { label: "Vous êtes ici", color: "#c95ee0" },
+  simulant:  { label: "Développement/collection de simulants", color: "#787878" },
+};
+
+const ENTRIES = [
+  {
+    conference: "",
+    org: "Toulouse Task Force on ISRU",
+    person: "",
+    lat: 43.561953192707186, lng: 1.4805094756508246,
+    category: "maison",
+    notes: [
+      "Laboratoires et organismes formant la Task Force : CNES, ICA, IRAP, LGC, TBI",
+    ],
+    collab: "Après avoir croisé Mathieu et Agnès (LGC) à l'ELS 2026, conclusion sur la possibilité de broyer une électrode en carbone avec du simulant de régolithe réduit, et d'utiliser le produit obtenu en SLM"
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "ESA ECSAT (Harwell, UK)",
+    person: "Christopher Ogunlesi (PhD student)",
+    lat: 51.5717, lng: -1.3159,
+    category: "ded",
+    notes: [
+      "LDED sur simulants de régolithe réduit (LHS-1), procédé FFC, jusqu'à 99% d'extraction d'O2",
+      "Surtout caractérisation de poudre pour l'instant (DSC jusqu'à 1000°C, indice de cohésion Van der Waals / électrostatique / capillarité / mécanique, morphologie des particules)",
+      "Poudre : mélange principalement Al, Ca, Si, Fe"
+    ],
+    collab: ""
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "Aalen University (DE)",
+    person: "Miranda Fateri",
+    lat: 48.8365, lng: 10.0932,
+    category: "indirect",
+    notes: [
+      "A présenté son travail sur la confection de composites comprenant des fibres de simulants",
+      "Travail intéressant sur la viscosité via microscopie à platine chauffante (Hot Stage Microscopy)"
+    ],
+    collab: "Collaborations en cours : article sur fibres de simulants de régolithe, projet OSIP en phase 2"
+  }, 
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "VITO (Mol, BE)",
+    person: "Arturo Pajares",
+    lat: 51.1892, lng: 5.0865,
+    category: "indirect",
+    notes: [
+      "Direct Ink Jetting (méthylcellulose + eau + MGS-1), frittage à 1000°C, sans déliantage chimique !",
+      "Objectif : fabrication de catalyseurs pour la production de propergol"
+    ],
+    collab: ""
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "LZH — Laser Zentrum Hannover (DE)",
+    person: "Tim Eismann (PhD)",
+    lat: 52.3759, lng: 9.7320,
+    category: "pbf",
+    notes: [
+      "En attente d'un envoi de payload par Astrobotic",
+      "Séchage de la poudre à 800°C pour retirer l'eau : pourrait aussi retirer l'eau des phases cristallines impactées (olivines) ?",
+      "Effet de la PSD : grosses particules → objets plus gros, moins de défauts ; poudre fine (<90µm) → objets profonds",
+      "Utilisation d'une caméra thermique"
+    ],
+    collab: ""
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "Politecnico di Milano (IT)",
+    person: "Yassir Ben Dahou (doctorant)",
+    lat: 45.4780, lng: 9.2270,
+    category: "pbf",
+    notes: [
+      "Caméra thermique FLIR x6901sc avec profils de refroidissement, + caméra optique",
+      "Focus sur le réglage des paramètres : les VED intermédiaires ne fonctionnent pas — soit faible (frittage), soit élevé (fusion)"
+    ],
+    collab: ""
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "DTU — Danemark",
+    person: "Emma Porsberj (débute bientôt sa thèse)",
+    lat: 55.7861, lng: 12.5234,
+    category: "pbf",
+    notes: [
+      "Caméra thermique",
+      "Bonne qualité des pièces grâce à une stratégie laser à front de fusion continu",
+      "Approche par enthalpie normalisée"
+    ],
+    collab: "Collaboration en cours sur article, potentiel contrat de postdoc de 6 mois disponible"
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "DLR (Cologne)",
+    person: "Juan Carlos Arañó Romero (doctorant)",
+    lat: 50.8551, lng: 7.1207,
+    category: "pbf",
+    notes: [
+      "Renfort par fibres avec frittage solaire. Utilise des lampes halogènes en guise de réplique.",
+      "Pour lui, la zone de frittage idéale se situe entre le début de la fusion et la fin de la cristallisation, hypothèse à tester dans notre cas"
+    ],
+    collab: "Dispose d'un four sous vide pouvant dépasser 1000°C, se propose de le mettre à disposition si on veut faire des essais de frittage sous vide par exemple",
+
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "NASA - Huntsville",
+    person: "Parker D. Shake (Additive Manufacturing Engineer)",
+    lat: 34.7113, lng: -86.6564, 
+    category: "ded",
+    notes: [
+      "Bras robotisé avec laser sous vide, fonctionnement continu 60 jours en DED",
+      "Formation de vitrocéramique in-situ observée empiriquement !",
+      "A mentionné la carboréduction ; dit que c'est possible, mais aucun résultat montré pour l'instant",
+      "Réf. : ntrs.nasa.gov/citations/20250010749"
+    ],
+    collab: "Pas de collaboration en vue, mais j'insiste sur la nécessité de se pencher sur l'état de recuit lors de la SLM, et de la formation de cermets. J'en ferai la priorité pour de nouveaux projets.",
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "ESA ESTEC (Noordwijk, NL)",
+    person: "Caterina Iantaffi (Materials & Processes Engineer)",
+    lat: 52.2172, lng: 4.4211,
+    category: "ded",
+    notes: [
+      "Étude d'échantillons métalliques fabriqués sur l'ISS par DED",
+      "L'effet Marangoni dicte la forme du bain de fusion et la porosité",
+      "Échantillons produits en 0g : légèrement moins poreux et légèrement plus résistants mécaniquement"
+    ],
+    collab: ""
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "ÉTS Montréal (CA)",
+    person: "Saré Moazen",
+    lat: 45.4949, lng: -73.5622,
+    category: "indirect",
+    notes: [
+      "Composites avec PE en FFF : pas d'adhérence au plateau (similaire à nous), gauchissement important",
+      "Focus également sur la production de filament, extrudeuse bi-vis (3 Devo Filament Maker)",
+      "Pas de frittage, moins de régolithe en proportion"
+    ],
+    collab: ""
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "NASA - Glenn Research Center",
+    person: "Allison Christy (Research Chemical Engineer)",
+    lat: 41.41665736738107, lng: -81.85741396043865, 
+    category: "indirect",
+    notes: [
+      "Composites avec PHB ! Souhaite essayer différents PHA",
+      "Pas d'intention de déliantage / frittage",
+      "Impact de la proportion de régolithe sur les mécanismes de cristallisation ; le calcium est souvent un additif du PHB, effet encore faible",
+      "Soudage et réparation par ultrasons : fonctionne bien maius détruit la cristallinité"
+    ],
+    collab: "",
+  },
+  {
+    conference: "ESA Spaceship workshop - ECSAT (Harwell - UK)",
+    org: "ESA - Vulcan Lab facility",
+    person: "May Martin (planetary scientist)",
+    lat: 51.5717, lng: -1.3159,
+    category: "simulant",
+    notes: [
+      "Caractérisation et collection de simulants, rejette la notion de simulant haute fidélité"
+    ],
+    collab: "Peut être un bon acteur pour participer à l'harmonisation des essais de FA à l'échelle européenne"
+  },
+  {
+    conference: "WAMS 2026 — ESA/ESTEC, Noordwijk (NL)",
+    org: "ArcSpace (Palaiseau, FR)",
+    person: "Guillaume Mohara (CEO)",
+    lat: 48.7143, lng: 2.2085,
+    category: "ebeam",
+    notes: [
+      "Procédé de fusion par faisceau d'électrons miniaturisé (1,3 kg / 1,5 L) pour l'assemblage de grandes structures dans l'espace",
+      "Possibilité d'opérations de jonction et de découpe avec un seul outil, faible consommation d'énergie",
+      "Simulation du bain de fusion avec le soutien de Paris-Saclay"
+    ],
+    collab: "Cherche des essais en 0g avec le CNES, manque de partenaires académiques — intéressé à travailler avec nous !"
+  },
+  {
+    conference: "Space Resources Week 2026",
+    org: "Hispansion",
+    person: " Carlos Aguilar-Borasteros (CEO)",
+    lat: 40.35910126455815, lng: -3.7266072675795754,
+    category: "simulant",
+    notes: [
+      "Production de simulants sur-mesure et dits de haute fidélité. Entreprise incubée ESA."
+    ],
+    collab: ""
+  },
+  {
+    conference: "Space Resources Week 2026",
+    org: "Carleton University",
+    person: "Alex Ellery",
+    lat: 45.387400517653134, lng: -75.69288620594776,
+    category: "ded",
+    notes: [
+      "Projet HEPHAESTUS: partir de régolithe des highlands (anorthite), en extraire l'aluminium par leaching et procédés chimiques avec solvant réutilisable, puis fabriquer des pièces en 3D via DED. Sont allés jusqu'à la création d'une bobine en alu, trop rigide pour le DED. Cherchent à passer sur de la poudre pour de la SLM"
+    ],
+    collab: ""
+  },
+    {
+    conference: "European Lunar Symposium 2026",
+    org: "The Open University",
+    person: "Mahesh Anand",
+    lat: 52.02546943314498, lng: -0.7042738969208602, 
+    category: "pbf",
+    notes: [
+      "Avec son écosystème anglais, réunissant compétences en géologie et en manufacturing, à la pointe sur les aspects chauffage par micro-ondes"
+    ],
+    collab: "Deux possibilités : cherche un chef de projet pour développer des moyens d'extraction de ressources sur terrain minier désaffecté (pouvant servir à tester des technos lunaires), cherche à se procurer un simulant haute fidélité contenant des nanophases de fer réduit, paramètre important pour le chauffage par micro ondes. Peut d'abord se faire au travers de la thèse de Aamina Bhutta, puis propose dépot projet OSIP pour 2027"
+  },
+  {
+    conference: "European Lunar Symposium 2026",
+    org: "ESA",
+    person: "Sébastien Besse",
+    lat: 40.495842740051565, lng: -3.961630584584762,  
+    category: "simulant",
+    notes: [
+      "Travaille sur la mission BepiColombo, m'a donné des conseils pour la dépose de projets OSIP: 1) a insisté sur l'aspect high risk. L'ESA récompense les idées qui n'ont pas été testés auparavant, ainsi que la continuité de projets déjà financés. 2) S'associer avec un pays peu financé par l'ESA, notamment de l'Est peut aider : l'ESA n'arrive pas à leur rendre leur investissement."
+    ],
+  },
+];
+
+/* ========================================================================= */
+
+const map = L.map('map', { zoomControl: true, worldCopyJump: true }).setView([35, 15], 2.4);
+
+ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+	subdomains: 'abcd',
+	maxZoom: 20
+}).addTo(map);
+
+function makeIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+        width:16px;height:16px;border-radius:50%;
+        background:${color};
+        border:2px solid #0b1220;
+        box-shadow:0 0 0 2px ${color}55;
+      "></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8]
+  });
+}
+
+// --- Regroupement des entrées partageant les mêmes coordonnées (arrondies) ---
+function coordKey(entry) {
+  return entry.lat.toFixed(3) + ',' + entry.lng.toFixed(3);
+}
+
+const groups = {};
+ENTRIES.forEach(entry => {
+  const key = coordKey(entry);
+  if (!groups[key]) groups[key] = [];
+  groups[key].push(entry);
+});
+
+// État courant pour la navigation entre entrées d'un même lieu
+let activeGroup = null;
+let activeIndex = 0;
+
+function renderSidebar(group, index) {
+  activeGroup = group;
+  activeIndex = index;
+  const entry = group[index];
+  const cat = CATEGORIES[entry.category];
+  const notesHtml = entry.notes.map(n => `<li>${n}</li>`).join('');
+  const collabHtml = entry.collab
+    ? `<div class="card-collab"><strong>Piste de collaboration</strong><br>${entry.collab}</div>`
+    : '';
+  const approxHtml = entry.approx
+    ? `<div class="card-approx">⚠ Localisation approximative — à vérifier/corriger.</div>`
+    : '';
+  const navHtml = group.length > 1 ? `
+    <div class="group-nav">
+      <button onclick="navigateGroup(-1)" ${index === 0 ? 'disabled' : ''}>&#8592;</button>
+      <div class="group-label">${index + 1} / ${group.length} à cet endroit</div>
+      <button onclick="navigateGroup(1)" ${index === group.length - 1 ? 'disabled' : ''}>&#8594;</button>
+    </div>
+  ` : '';
+
+  document.getElementById('sidebar-content').innerHTML = `
+    ${navHtml}
+    <div class="card-conf">${entry.conference}</div>
+    <div class="card-org">${entry.org}</div>
+    <div class="card-person">${entry.person}</div>
+    <span class="card-tag" style="background:${cat.color}33; color:${cat.color};">${cat.label}</span>
+    <div class="card-notes"><ul>${notesHtml}</ul></div>
+    ${collabHtml}
+    ${approxHtml}
+  `;
+  document.getElementById('sidebar-content').classList.remove('placeholder');
+}
+
+function navigateGroup(delta) {
+  if (!activeGroup) return;
+  const newIndex = activeIndex + delta;
+  if (newIndex < 0 || newIndex >= activeGroup.length) return;
+  renderSidebar(activeGroup, newIndex);
+}
+
+// --- Création des marqueurs : un par lieu, badge "cluster" si plusieurs entrées ---
+Object.values(groups).forEach(group => {
+  const first = group[0];
+  let icon;
+  if (group.length === 1) {
+    icon = makeIcon(CATEGORIES[first.category].color);
+  } else {
+    icon = L.divIcon({
+      className: '',
+      html: `<div class="cluster-badge">${group.length}</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+      popupAnchor: [0, -11]
+    });
+  }
+
+  const marker = L.marker([first.lat, first.lng], { icon }).addTo(map);
+
+  const popupList = group.map(e => `<div style="margin-bottom:4px;"><b>${e.org}</b><br><span style="color:#9aa8c0;">${e.person}</span></div>`).join('<hr style="border-color:#23324d;margin:6px 0;">');
+  marker.bindPopup(popupList);
+
+  marker.on('click', () => renderSidebar(group, 0));
+});
+
+// Légende
+const legend = L.control({ position: 'bottomleft' });
+legend.onAdd = function () {
+  const div = L.DomUtil.create('div', 'legend');
+  let html = '<div style="font-weight:700;margin-bottom:4px;">Procédé</div>';
+  Object.values(CATEGORIES).forEach(c => {
+    html += `<div><span class="legend-dot" style="background:${c.color}"></span>${c.label}</div>`;
+  });
+  div.innerHTML = html;
+  return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>
